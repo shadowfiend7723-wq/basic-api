@@ -1,28 +1,28 @@
-from fastapi import FastAPI, requests, responses, HTTPException,APIRouter, Request,Form
-from argon2 import PasswordHasher # type: ignore
-from pymongo import MongoClient
+from argon2 import PasswordHasher
+from argon2.exceptions import VerifyMismatchError
+from fastapi import APIRouter, Form, HTTPException, status
 
+from app import database
 
 router = APIRouter()
-ph= PasswordHasher()
+password_hasher = PasswordHasher()
 
-client = MongoClient("mongodb://localhost:27017/")
-db= client["NOVA"]
-collection= db["users"]
 
 @router.post("/login")
-async def login(request:Request,
-                username: str= Form(...),
-                password: str= Form(...)):
-    
-    user= collection.find_one({"username":username})
-    if user:
-        try:
-            ph.verify(user[password],password)
-        except Exception:
-            return("Verify missmatch error")    
-    return {"message": f"Welcome, {username}"}    
-             
+def login(username: str = Form(...), password: str = Form(...)) -> dict[str, str]:
+    user = database.users.find_one({"username": username})
+    if user is None:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid username or password",
+        )
 
-    
-    
+    try:
+        password_hasher.verify(user["password"], password)
+    except VerifyMismatchError:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid username or password",
+        ) from None
+
+    return {"message": f"Welcome, {username}"}

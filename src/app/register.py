@@ -1,23 +1,22 @@
-from fastapi import FastAPI, requests, responses, HTTPException,APIRouter, Request,Form
-from argon2 import PasswordHasher # type: ignore
-from pymongo import MongoClient
+from argon2 import PasswordHasher
+from fastapi import APIRouter, Form, HTTPException, status
 
+from app import database
 
 router = APIRouter()
-ph= PasswordHasher()
+password_hasher = PasswordHasher()
 
-client = MongoClient("mongodb://localhost:27017/")
-db= client["NOVA"]
-collection= db["users"]
 
-@router.post("/register")
-async def login(request:Request,
-                username: str= Form(...),
-                password: str= Form(...)):
-    
-    user= collection.find_one({"username":username})
+@router.post("/register", status_code=status.HTTP_201_CREATED)
+def register(username: str = Form(...), password: str = Form(...)) -> dict[str, str]:
+    user = database.users.find_one({"username": username})
     if user:
-        return("Username already taken")
-    collection.insert_one("username":username, "password"= ph.hash(password))
-    return {"message": f"Welcome, {username}"}    
-    
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Username already taken",
+        )
+
+    database.users.insert_one(
+        {"username": username, "password": password_hasher.hash(password)}
+    )
+    return {"message": f"Welcome, {username}"}
