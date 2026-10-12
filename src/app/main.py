@@ -10,6 +10,7 @@ app.include_router(login_router)
 
 @app.get("/")
 def index() -> dict[str, str]:
+    print("This is the master branch")
     return {"message": "NOVA API From master", "docs": "/docs"}
 
     return {"message": "NOVA API from feature-header", "docs": "/docs"}
